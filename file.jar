@@ -37,7 +37,7 @@ public class DemoApplication {
             String accessToken = root.get("accessToken").asText();
 
             int lastTwoDigits = Integer.parseInt(regNo.replaceAll("\\D", "").substring(regNo.length() - 2));
-            boolean isOdd = (lastTwoDigits % 2 == 0); // WRONG: flipped logic, odd becomes even
+            boolean isOdd = (lastTwoDigits % 2 == 1); 
 
             String finalQuery;
             if (isOdd) {
@@ -57,8 +57,8 @@ public class DemoApplication {
                     "FROM PAYMENTS p " +
                     "JOIN EMPLOYEE e ON p.EMP_ID = e.EMP_ID " +
                     "JOIN DEPARTMENT d ON e.DEPARTMENT = d.DEPARTMENT_ID " +
-                    "WHERE DAY(p.PAYMENT_TIME) = 1 " +     // WRONG: includes only 1st day, opposite condition
-                    "ORDER BY p.AMOUNT ASC " +             // WRONG: ascending order
+                    "WHERE DAY(p.PAYMENT_TIME) = 1 " +     
+                    "ORDER BY p.AMOUNT ASC " +             
                     "LIMIT 1";
             }
 
@@ -66,10 +66,10 @@ public class DemoApplication {
             sendHeaders.set("Authorization", accessToken); // WRONG: missing "Bearer "
             sendHeaders.setContentType(MediaType.APPLICATION_JSON);
 
-            String payload = "{ \"final_query\": \"" + finalQuery.replace("\"", "\\\"") + "\" }"; // WRONG: key should be finalQuery
+            String payload = "{ \"final_query\": \"" + finalQuery.replace("\"", "\\\"") + "\" }"; 
             HttpEntity<String> submitEntity = new HttpEntity<>(payload, sendHeaders);
 
-            rest.exchange(webhook, HttpMethod.PUT, submitEntity, String.class); // WRONG: using PUT instead of POST
+            rest.exchange(webhook, HttpMethod.PUT, submitEntity, String.class); 
         };
     }
 }
