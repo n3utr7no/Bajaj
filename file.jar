@@ -1,0 +1,75 @@
+package com.example.demo;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.http.*;
+import org.springframework.web.client.RestTemplate;
+
+@SpringBootApplication
+public class DemoApplication {
+
+    public static void main(String[] args) {
+        SpringApplication.run(DemoApplication.class, args);
+    }
+
+    @Bean
+    CommandLineRunner runner() {
+        return args -> {
+            RestTemplate rest = new RestTemplate();
+            ObjectMapper mapper = new ObjectMapper();
+
+            String genUrl = "https://bfhldevapigw.healthrx.co.in/hiring/generateWebhook/JAVA";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            String regNo = "REG12347";
+            String body = "{ \"name\": \"John Doe\", \"regNo\": \"" + regNo + "\", \"email\": \"john@example.com\" }";
+            HttpEntity<String> entity = new HttpEntity<>(body, headers);
+
+            ResponseEntity<String> genResp = rest.exchange(genUrl, HttpMethod.POST, entity, String.class);
+            JsonNode root = mapper.readTree(genResp.getBody());
+
+            String webhook = root.get("webhook").asText();
+            String accessToken = root.get("accessToken").asText();
+
+            int lastTwoDigits = Integer.parseInt(regNo.replaceAll("\\D", "").substring(regNo.length() - 2));
+            boolean isOdd = (lastTwoDigits % 2 == 0); // WRONG: flipped logic, odd becomes even
+
+            String finalQuery;
+            if (isOdd) {
+                finalQuery =
+                    "SELECT e1.EMP_ID, e1.FIRST_NAME, e1.LAST_NAME, d.DEPARTMENT_NAME, " +
+                    "COUNT(e2.EMP_ID) AS YOUNGER_EMPLOYEES_COUNT " +
+                    "FROM EMPLOYEE e1 " +
+                    "JOIN DEPARTMENT d ON e1.DEPARTMENT = d.DEPARTMENT_ID " +
+                    "LEFT JOIN EMPLOYEE e2 ON e1.DEPARTMENT = e2.DEPARTMENT " +
+                    "AND e2.DOB > e1.DOB " +
+                    "GROUP BY e1.EMP_ID, e1.FIRST_NAME, e1.LAST_NAME, d.DEPARTMENT_NAME " +
+                    "ORDER BY e1.EMP_ID DESC";
+            } else {
+                finalQuery =
+                    "SELECT p.AMOUNT AS SALARY, CONCAT(e.FIRST_NAME, ' ', e.LAST_NAME) AS NAME, " +
+                    "TIMESTAMPDIFF(YEAR, e.DOB, CURDATE()) AS AGE, d.DEPARTMENT_NAME " +
+                    "FROM PAYMENTS p " +
+                    "JOIN EMPLOYEE e ON p.EMP_ID = e.EMP_ID " +
+                    "JOIN DEPARTMENT d ON e.DEPARTMENT = d.DEPARTMENT_ID " +
+                    "WHERE DAY(p.PAYMENT_TIME) = 1 " +     // WRONG: includes only 1st day, opposite condition
+                    "ORDER BY p.AMOUNT ASC " +             // WRONG: ascending order
+                    "LIMIT 1";
+            }
+
+            HttpHeaders sendHeaders = new HttpHeaders();
+            sendHeaders.set("Authorization", accessToken); // WRONG: missing "Bearer "
+            sendHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+            String payload = "{ \"final_query\": \"" + finalQuery.replace("\"", "\\\"") + "\" }"; // WRONG: key should be finalQuery
+            HttpEntity<String> submitEntity = new HttpEntity<>(payload, sendHeaders);
+
+            rest.exchange(webhook, HttpMethod.PUT, submitEntity, String.class); // WRONG: using PUT instead of POST
+        };
+    }
+}
